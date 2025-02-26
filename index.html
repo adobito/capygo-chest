@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Capybara Go Chest Rewards Calculator</title>
+  <style>
+    body {
+      font-family: sans-serif;
+    }
+    .container {
+      width: 300px;
+      margin: 20px auto;
+    }
+    .input-group {
+      margin-bottom: 10px;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Capybara Go Chest Rewards Calculator</h1>
+
+  <div class="input-group">
+    <label for="bronze">Bronze Chests:</label>
+    <input type="number" id="bronze" value="0">
+  </div>
+
+  <div class="input-group">
+    <label for="silver">Silver Chests:</label>
+    <input type="number" id="silver" value="0">
+  </div>
+
+  <div class="input-group">
+    <label for="gold">Gold Chests:</label>
+    <input type="number" id="gold" value="0">
+  </div>
+
+  <div class="input-group">
+    <label for="pet">Pet Chests:</label>
+    <input type="number" id="pet" value="0">
+  </div>
+
+  <div class="input-group">
+    <label for="cycleStart">Cycle Start:</label>
+    <select id="cycleStart">
+      <option value="0">Silver Chest - 20</option>
+      <option value="1">Silver Chest - 30</option>
+      <option value="2">Gold Chest - 40</option>
+      <option value="3">Pet Chest - 80</option>
+      <option value="4">Gold Chest - 60</option>
+      <option value="5">Gem Chest - 100</option>
+      <option value="6">Gold Chest - 80</option>
+      <option value="7">Pet Chest - 120</option>
+      <option value="8">Gem Chest - 180</option>
+    </select>
+  </div>
+
+  <div class="input-group">
+    <label for="cycleAccumulated">Cycle Accumulated Points:</label>
+    <input type="number" id="cycleAccumulated" value="0">
+  </div>
+  <div class = "input-group">
+    <label for="chestGrowth">Include Chest Growth Rewards:</label>
+    <input type="checkbox" id="chestGrowth" onchange="toggleGrowthPoints()">
+  </div>
+  <div class="input-group hidden" id="growthPointsInput">
+    <label for="buildGrowthPoints">Current Build Growth Points:</label>
+    <input type="number" id="buildGrowthPoints" value="0">
+  </div>
+
+  <button onclick="calculate()">Calculate</button>
+
+  <div id="result"></div>
+</div>
+
+<script>
+  function toggleGrowthPoints() {
+    const growthCheckbox = document.getElementById('chestGrowth');
+    const growthPointsInput = document.getElementById('growthPointsInput');
+    if (growthCheckbox.checked) {
+      growthPointsInput.classList.remove('hidden');
+    } else {
+      growthPointsInput.classList.add('hidden');
+    }
+    localStorage.setItem('chestGrowth', growthCheckbox.checked);
+  }
+
+  function calculate() {
+    const bronze = parseInt(document.getElementById('bronze').value);
+    const silver = parseInt(document.getElementById('silver').value);
+    const gold = parseInt(document.getElementById('gold').value);
+    const pet = parseInt(document.getElementById('pet').value);
+    const cycleStart = parseInt(document.getElementById('cycleStart').value);
+    const cycleAccumulated = parseInt(document.getElementById('cycleAccumulated').value);
+    const includeGrowth = document.getElementById('chestGrowth').checked;
+    const buildGrowthPoints = includeGrowth ? parseInt(document.getElementById('buildGrowthPoints').value) : 0;
+
+    let chestPoints = bronze + (silver * 10) + (gold * 20) + (pet * 50);
+    let growthSilver = 0;
+    let totalPoints = chestPoints + cycleAccumulated;
+
+    const rewards = [20, 30, 40, 80, 60, 100, 80, 120, 180];
+    let currentCycleIndex = cycleStart;
+    let gemChests = 0;
+    let rewardPoints = 0;
+
+    function calculateRewardsAndGrowth(points, growthPoints) {
+      let localGrowthSilver = 0;
+      if (includeGrowth) {
+        // Exclude starting growth points from the calculation
+        let growthCalculationPoints = points;
+
+        if (growthCalculationPoints < 20000) {
+          // Calculate silver chests based on points up to 20000
+          let pointsForGrowth = Math.ceil((20000 - growthPoints) / 1000) * 1000;
+          localGrowthSilver = Math.floor(Math.min(pointsForGrowth, growthCalculationPoints) / 1000) * 10;
+          points += localGrowthSilver * 10;
+        } else {
+          localGrowthSilver = 200;
+          points += localGrowthSilver * 10;
+        }
+      }
+      while (points >= rewards[currentCycleIndex]) {
+        points -= rewards[currentCycleIndex];
+
+        if (currentCycleIndex === 5 || currentCycleIndex === 8) {
+          gemChests++;
+        }
+
+        if (currentCycleIndex === 0 || currentCycleIndex === 1) {
+          rewardPoints += 10;
+        } else if (currentCycleIndex === 2 || currentCycleIndex === 4 || currentCycleIndex === 6) {
+          rewardPoints += 20;
+        } else if (currentCycleIndex === 3 || currentCycleIndex === 7) {
+          rewardPoints += 50;
+        } else if (currentCycleIndex === 5 || currentCycleIndex === 8){
+          rewardPoints += 0;
+        }
+
+        currentCycleIndex = (currentCycleIndex + 1) % rewards.length;
+      }
+      growthSilver += localGrowthSilver;
+      return points;
+    }
+
+    totalPoints = calculateRewardsAndGrowth(totalPoints, buildGrowthPoints);
+    totalPoints += rewardPoints;
+    currentCycleIndex = cycleStart;
+    totalPoints = calculateRewardsAndGrowth(totalPoints, 0)
+
+    document.getElementById('result').innerHTML = `
+                Total Chest Points: ${chestPoints + rewardPoints + cycleAccumulated + (growthSilver * 10)}<br>
+                Gem Chests Obtained: ${gemChests}<br>
+            `;
+  }
+  // Load checkbox state from localStorage
+  window.addEventListener('load', () => {
+    const savedChestGrowth = localStorage.getItem('chestGrowth');
+    const growthCheckbox = document.getElementById('chestGrowth');
+    if (savedChestGrowth === 'true') {
+      growthCheckbox.checked = true;
+      toggleGrowthPoints(); // Show the growth points input
+    }
+  });
+</script>
+</body>
+</html>
